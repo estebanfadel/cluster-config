@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: poi
+  namespace: api
+  labels:
+    app: poi
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: poi
+  template:
+    metadata:
+      labels:
+        app: poi
+    spec:
+      containers:
+        - name: poi
+          image: registryrxy3089.azurecr.io/tripinsights/poi:1.0
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: CONFIG_FILES_PATH
+              value: /kvmnt
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: test
+              mountPath: /kvmnt
+              readOnly: true
+      volumes:
+        - name: test
+          flexVolume:
+            driver: "azure/kv"
+            secretRef:
+              name: kvcreds # [OPTIONAL] not required if using Pod Identity
+            options:
+              usepodidentity: "false" # [OPTIONAL] if not provided, will default to "false"
+              keyvaultname: "team1-kv" # the name of the KeyVault
+              keyvaultobjectnames: sqlUser;sqlserver;sqluserPWD # list of KeyVault object names (semi-colon separated)
+              keyvaultobjectaliases: SQL_USER;SQL_SERVER;SQL_PASSWORD
+              keyvaultobjecttypes: secret;secret;secret # list of KeyVault object types: secret, key or cert (semi-colon separated)
+              keyvaultobjectversions: "" # [OPTIONAL] list of KeyVault object versions (semi-colon separated), will get latest if empty
+              tenantid: da39254b-a996-490e-82c8-b287e28b9132 # the tenant ID of the KeyVault
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: poi
+  namespace: api
+spec:
+  type: LoadBalancer
+  selector:
+    app: poi
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 80
